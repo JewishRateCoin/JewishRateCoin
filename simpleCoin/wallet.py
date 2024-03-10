@@ -4,6 +4,7 @@ import base64
 import ecdsa
 import json
 
+
 def wallet():
     response = None
     while response not in ["1", "2", "3", "4"]:
@@ -13,24 +14,26 @@ def wallet():
         3. Check transactions
         4. Quit\n""")
     if response == "1":
-        # Generate new wallet
         print("""=========================================\n
 IMPORTANT: save this credentials or you won't be able to recover your wallet\n
 =========================================\n""")
         generate_ECDSA_keys()
     elif response == "2":
         send_transaction()
+        return wallet()
     elif response == "3":
         check_transactions()
+        return wallet()
     else:
         quit()
+
 
 def send_transaction():
     addr_from = input("From: introduce your wallet address (public key)\n")
     private_key = input("Introduce your private key\n")
     addr_to = input("To: introduce destination wallet address\n")
     amount = input("Amount: number stating how much do you want to send\n")
-    coin = "JEWISHRATECOIN"  # Ensure the coin type is "JEWISHRATECOIN"
+    coin = "JEWISHRATECOIN"
     print("=========================================\n\n")
     print("Is everything correct?\n")
     print(F"From: {addr_from}\nPrivate Key: {private_key}\nTo: {addr_to}\nAmount: {amount}\n")
@@ -38,15 +41,10 @@ def send_transaction():
     if response.lower() == "y":
         send_transaction_request(addr_from, private_key, addr_to, amount, coin)
     elif response.lower() == "n":
-        return wallet()  # return to main menu
+        return wallet()
+
 
 def send_transaction_request(addr_from, private_key, addr_to, amount, coin):
-    """Sends your transaction to different nodes. Once any of the nodes manage
-    to mine a block, your transaction will be added to the blockchain. Despite
-    that, there is a low chance your transaction gets canceled due to other nodes
-    having a longer chain. So make sure your transaction is deep into the chain
-    before claiming it as approved!
-    """
     if len(private_key) == 64:
         signature, message = sign_ECDSA_msg(private_key)
         url = 'http://localhost:5000/txion'
@@ -55,7 +53,7 @@ def send_transaction_request(addr_from, private_key, addr_to, amount, coin):
                    "amount": amount,
                    "signature": signature.decode(),
                    "message": message,
-                   "coin": coin}  # Include the coin type
+                   "coin": coin}
         headers = {"Content-Type": "application/json"}
 
         res = requests.post(url, json=payload, headers=headers)
@@ -63,10 +61,8 @@ def send_transaction_request(addr_from, private_key, addr_to, amount, coin):
     else:
         print("Wrong address or key length! Verify and try again.")
 
+
 def check_transactions():
-    """Retrieve the entire blockchain. With this you can check your
-    wallets balance. If the blockchain is too long, it may take some time to load.
-    """
     try:
         res = requests.get('http://localhost:5000/blocks')
         parsed = json.loads(res.text)
@@ -74,19 +70,12 @@ def check_transactions():
     except requests.ConnectionError:
         print('Connection error. Make sure that you have run miner.py in another terminal.')
 
-def generate_ECDSA_keys():
-    """This function takes care of creating your private and public (your address) keys.
-    It's very important you don't lose any of them or those wallets will be lost
-    forever. If someone else gets access to your private key, you risk losing your coins.
 
-    private_key: str
-    public_ley: base64 (to make it shorter)
-    """
-    sk = ecdsa.SigningKey.generate(curve=ecdsa.SECP256k1)  # this is your sign (private key)
-    private_key = sk.to_string().hex()  # convert your private key to hex
-    vk = sk.get_verifying_key()  # this is your verification key (public key)
+def generate_ECDSA_keys():
+    sk = ecdsa.SigningKey.generate(curve=ecdsa.SECP256k1)
+    private_key = sk.to_string().hex()
+    vk = sk.get_verifying_key()
     public_key = vk.to_string().hex()
-    # we are going to encode the public key to make it shorter
     public_key = base64.b64encode(bytes.fromhex(public_key))
 
     filename = input("Write the name of your new address: ") + ".txt"
@@ -94,24 +83,21 @@ def generate_ECDSA_keys():
         f.write(F"Private key: {private_key}\nWallet address / Public key: {public_key.decode()}")
     print(F"Your new address and private key are now in the file {filename}")
 
-def sign_ECDSA_msg(private_key):
-    """Sign the message to be sent
-    private_key: must be hex
 
-    return
-    signature: base64 (to make it shorter)
-    message: str
-    """
-    # Get timestamp, round it, make it into a string and encode it to bytes
+def sign_ECDSA_msg(private_key):
     message = str(round(time.time()))
     bmessage = message.encode()
     sk = ecdsa.SigningKey.from_string(bytes.fromhex(private_key), curve=ecdsa.SECP256k1)
     signature = base64.b64encode(sk.sign(bmessage))
     return signature, message
 
+
 if __name__ == '__main__':
     print("""       =========================================\n
-        JEWISHRATECOIN WALLET v1.0.0\n
-       =========================================\n\n""")
+        JEWISHRATECOIN v1.0.0 - BLOCKCHAIN SYSTEM\n
+       =========================================\n\n
+        You can find more help at: https://github.com/cosme12/SimpleCoin\n
+        Make sure you are using the latest version or you may end in
+        a parallel chain.\n\n\n""")
     wallet()
     input("Press ENTER to exit...")
