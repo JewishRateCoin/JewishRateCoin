@@ -62,30 +62,31 @@ def mine(a, blockchain, node_pending_transactions):
             a.send(BLOCKCHAIN)
             continue
         else:
-            NODE_PENDING_TRANSACTIONS = requests.get(url=MINER_NODE_URL + '/txion', params={'update': MINER_ADDRESS}).content
-            NODE_PENDING_TRANSACTIONS = json.loads(NODE_PENDING_TRANSACTIONS)
-            NODE_PENDING_TRANSACTIONS.append({
-                "from": "network",
-                "to": MINER_ADDRESS,
-                "amount": 1})
-            new_block_data = {
-                "proof-of-work": proof[0],
-                "transactions": list(NODE_PENDING_TRANSACTIONS)
-            }
-            new_block_index = last_block.index + 1
-            new_block_timestamp = time.time()
-            last_block_hash = last_block.hash
-            NODE_PENDING_TRANSACTIONS = []
-            mined_block = Block(new_block_index, new_block_timestamp, new_block_data, last_block_hash)
-            BLOCKCHAIN.append(mined_block)
-            print(json.dumps({
-              "index": new_block_index,
-              "timestamp": str(new_block_timestamp),
-              "data": new_block_data,
-              "hash": last_block_hash
-            }, sort_keys=True) + "\n")
-            a.send(BLOCKCHAIN)
-            requests.get(url=MINER_NODE_URL + '/blocks', params={'update': MINER_ADDRESS})
+            if len(NODE_PENDING_TRANSACTIONS) == 1:  # Ensure only one transaction at a time
+                NODE_PENDING_TRANSACTIONS = requests.get(url=MINER_NODE_URL + '/txion', params={'update': MINER_ADDRESS}).content
+                NODE_PENDING_TRANSACTIONS = json.loads(NODE_PENDING_TRANSACTIONS)
+                NODE_PENDING_TRANSACTIONS.append({
+                    "from": "network",
+                    "to": MINER_ADDRESS,
+                    "amount": 1})
+                new_block_data = {
+                    "proof-of-work": proof[0],
+                    "transactions": list(NODE_PENDING_TRANSACTIONS)
+                }
+                new_block_index = last_block.index + 1
+                new_block_timestamp = time.time()
+                last_block_hash = last_block.hash
+                NODE_PENDING_TRANSACTIONS = []
+                mined_block = Block(new_block_index, new_block_timestamp, new_block_data, last_block_hash)
+                BLOCKCHAIN.append(mined_block)
+                print(json.dumps({
+                  "index": new_block_index,
+                  "timestamp": str(new_block_timestamp),
+                  "data": new_block_data,
+                  "hash": last_block_hash
+                }, sort_keys=True) + "\n")
+                a.send(BLOCKCHAIN)
+                requests.get(url=MINER_NODE_URL + '/blocks', params={'update': MINER_ADDRESS})
 
 
 def find_new_chains():
@@ -142,12 +143,15 @@ def transaction():
         new_txion = request.get_json()
         if new_txion['coin'] == "JEWISHRATECOIN":  # Check coin type
             if validate_signature(new_txion['from'], new_txion['signature'], new_txion['message']):
-                NODE_PENDING_TRANSACTIONS.append(new_txion)
-                print("New transaction")
-                print("FROM: {0}".format(new_txion['from']))
-                print("TO: {0}".format(new_txion['to']))
-                print("AMOUNT: {0}\n".format(new_txion['amount']))
-                return "Transaction submission successful\n"
+                if len(NODE_PENDING_TRANSACTIONS) == 0:  # Ensure no pending transactions
+                    NODE_PENDING_TRANSACTIONS.append(new_txion)
+                    print("New transaction")
+                    print("FROM: {0}".format(new_txion['from']))
+                    print("TO: {0}".format(new_txion['to']))
+                    print("AMOUNT: {0}\n".format(new_txion['amount']))
+                    return "Transaction submission successful\n"
+                else:
+                    return "Pending transaction exists. Try again later\n"
             else:
                 return "Transaction submission failed. Wrong signature\n"
         else:
