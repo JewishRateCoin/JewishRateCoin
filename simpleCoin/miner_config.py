@@ -1,4 +1,4 @@
-# Configure this file before you start mining. Check wallet.py for more details.
+# Configure this file before you start mining.
 
 # Write your generated address here. All coins mined will go to this address
 MINER_ADDRESS = "q3nf394hjg-random-miner-address-34nf3i4nflkn3oi"
