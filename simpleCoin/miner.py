@@ -84,6 +84,7 @@ def mine(a, blockchain, node_pending_transactions):
                         "data": new_block_data,
                         "hash": last_block_hash
                     }, sort_keys=True) + "\n")
+                    print("Coin mined successfully!")  # Print a message when a coin is mined
                     a.send(BLOCKCHAIN)
                     requests.get(url=MINER_NODE_URL + '/blocks', params={'update': MINER_ADDRESS})
                     last_block_time = current_time  # Update last block time
