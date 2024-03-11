@@ -11,6 +11,8 @@ from miner_config import MINER_ADDRESS, MINER_NODE_URL, PEER_NODES
 
 node = Flask(__name__)
 
+# Define the desired mining interval in seconds
+MINING_INTERVAL = 1
 
 class Block:
     def __init__(self, index, timestamp, data, previous_hash):
@@ -53,40 +55,40 @@ def proof_of_work(last_proof, blockchain):
 def mine(a, blockchain, node_pending_transactions):
     BLOCKCHAIN = blockchain
     NODE_PENDING_TRANSACTIONS = node_pending_transactions
+    last_block_time = time.time()  # Track the time when the last block was mined
     while True:
-        last_block = BLOCKCHAIN[-1]
-        last_proof = last_block.data['proof-of-work']
-        proof = proof_of_work(last_proof, BLOCKCHAIN)
-        if not proof[0]:
-            BLOCKCHAIN = proof[1]
-            a.send(BLOCKCHAIN)
-            continue
-        else:
-            if len(NODE_PENDING_TRANSACTIONS) == 1:  # Ensure only one transaction at a time
-                NODE_PENDING_TRANSACTIONS = requests.get(url=MINER_NODE_URL + '/txion', params={'update': MINER_ADDRESS}).content
-                NODE_PENDING_TRANSACTIONS = json.loads(NODE_PENDING_TRANSACTIONS)
-                NODE_PENDING_TRANSACTIONS.append({
-                    "from": "network",
-                    "to": MINER_ADDRESS,
-                    "amount": 1})
-                new_block_data = {
-                    "proof-of-work": proof[0],
-                    "transactions": list(NODE_PENDING_TRANSACTIONS)
-                }
-                new_block_index = last_block.index + 1
-                new_block_timestamp = time.time()
-                last_block_hash = last_block.hash
-                NODE_PENDING_TRANSACTIONS = []
-                mined_block = Block(new_block_index, new_block_timestamp, new_block_data, last_block_hash)
-                BLOCKCHAIN.append(mined_block)
-                print(json.dumps({
-                  "index": new_block_index,
-                  "timestamp": str(new_block_timestamp),
-                  "data": new_block_data,
-                  "hash": last_block_hash
-                }, sort_keys=True) + "\n")
+        current_time = time.time()
+        if current_time - last_block_time >= MINING_INTERVAL:  # Check if it's time to mine a new block
+            last_block = BLOCKCHAIN[-1]
+            last_proof = last_block.data['proof-of-work']
+            proof = proof_of_work(last_proof, BLOCKCHAIN)
+            if not proof[0]:
+                BLOCKCHAIN = proof[1]
                 a.send(BLOCKCHAIN)
-                requests.get(url=MINER_NODE_URL + '/blocks', params={'update': MINER_ADDRESS})
+                continue
+            else:
+                if len(NODE_PENDING_TRANSACTIONS) > 0:  # Ensure there are pending transactions to include
+                    new_block_data = {
+                        "proof-of-work": proof[0],
+                        "transactions": list(NODE_PENDING_TRANSACTIONS)
+                    }
+                    new_block_index = last_block.index + 1
+                    new_block_timestamp = time.time()
+                    last_block_hash = last_block.hash
+                    NODE_PENDING_TRANSACTIONS = []
+                    mined_block = Block(new_block_index, new_block_timestamp, new_block_data, last_block_hash)
+                    BLOCKCHAIN.append(mined_block)
+                    print(json.dumps({
+                        "index": new_block_index,
+                        "timestamp": str(new_block_timestamp),
+                        "data": new_block_data,
+                        "hash": last_block_hash
+                    }, sort_keys=True) + "\n")
+                    a.send(BLOCKCHAIN)
+                    requests.get(url=MINER_NODE_URL + '/blocks', params={'update': MINER_ADDRESS})
+                    last_block_time = current_time  # Update last block time
+        # Sleep for a short duration to prevent high CPU usage
+        time.sleep(0.1)
 
 
 def find_new_chains():
